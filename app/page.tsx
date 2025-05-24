@@ -1,201 +1,123 @@
-// app/protected/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/utils/supabase/client";
+import { LogOut, Plus } from "lucide-react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { AddApartment, type ApartmentFormData } from "@/components/add-apartment";
+import { RouteCalculation } from "@/components/route-calculation";
+import { ConfirmApartment } from "@/components/confirm-apartment";
+import { createClient } from "@/utils/supabase/client";
 
-interface Roommate {
-  id: string;
-  auth_user_id: string | null;
-  name: string;
-  work_address: string;
-  avatar_color: string;
-  created_at: string;
+interface RouteResult {
+  destination: string;
+  distance: string;
+  duration: string;
+  status: 'loading' | 'completed';
 }
 
 export default function HomePage() {
-  const [user, setUser] = useState<any>(null);
-  const [roommate, setRoommate] = useState<Roommate | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loggingOut, setLoggingOut] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showRouteDialog, setShowRouteDialog] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  
+  const [currentApartmentData, setCurrentApartmentData] = useState<ApartmentFormData | null>(null);
+  const [routeResults, setRouteResults] = useState<RouteResult[]>([]);
+  const [fairnessScore, setFairnessScore] = useState<number>(0);
+  
   const router = useRouter();
-  const supabase = createClient();
 
-  useEffect(() => {
-    getCurrentUser();
-  }, []);
-
-  const getCurrentUser = async () => {
-    try {
-      // Get current auth user
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        console.log("❌ No authenticated user found");
-        router.push("/");
-        return;
-      }
-
-      console.log("✅ Authenticated user:", {
-        id: user.id,
-        email: user.email,
-        metadata: user.user_metadata,
-      });
-
-      setUser(user);
-
-      // Get linked roommate
-      const { data: roommateData, error: roommateError } = await supabase
-        .from("roommates")
-        .select("*")
-        .eq("auth_user_id", user.id)
-        .single();
-
-      if (!roommateError && roommateData) {
-        console.log("✅ Linked roommate found:", roommateData);
-        setRoommate(roommateData);
-      } else {
-        console.log("⚠️ No roommate linked to this auth user");
-      }
-    } catch (error) {
-      console.error("❌ Error getting current user:", error);
-      router.push("/");
-    } finally {
-      setLoading(false);
-    }
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/sign-in");
   };
 
-  const handleLogout = async () => {
-    if (loggingOut) return; // Prevent double execution
-
-    setLoggingOut(true);
-    console.log("🔄 Logging out...");
-
-    try {
-      // Just sign out - no need to clear roommate link
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error("❌ Logout error:", error);
-        alert(`Logout failed: ${error.message}`);
-        return;
-      }
-
-      console.log("✅ Successfully logged out");
-
-      // Clear local state
-      setUser(null);
-      setRoommate(null);
-
-      // Redirect to login
-      router.push("/login");
-    } catch (error) {
-      console.error("❌ Exception during logout:", error);
-      alert("Logout failed. Please try again.");
-    } finally {
-      setLoggingOut(false);
-    }
+  const handleAddApartmentSubmit = (data: ApartmentFormData) => {
+    setCurrentApartmentData(data);
+    setShowAddDialog(false);
+    setShowRouteDialog(true);
   };
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-slate-400">Loading...</div>
-      </div>
-    );
-  }
+
+  const handleRouteCalculationComplete = (results: RouteResult[]) => {
+    setRouteResults(results);
+    setFairnessScore(78); // This would come from the calculation
+    setShowRouteDialog(false);
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmApartment = () => {
+    // Here you would save the apartment to the database
+    console.log('Saving apartment:', {
+      apartmentData: currentApartmentData,
+      routeResults,
+      fairnessScore
+    });
+    
+    // Reset state
+    setCurrentApartmentData(null);
+    setRouteResults([]);
+    setFairnessScore(0);
+    setShowConfirmDialog(false);
+  };
 
   return (
-    <div className="min-h-screen bg-slate-900 p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-light text-slate-200 mb-4">
-            Protected Page
-          </h1>
-          <p className="text-slate-400">Authentication successful! 🎉</p>
+    <div className="min-h-screen bg-gray-950 text-white">
+      {/* Header with Logout */}
+      <header className="flex justify-between items-center px-6 py-4 bg-gray-800 border-b border-gray-700">
+        <div className="flex items-center gap-3">
+          <img src="/favicon.ico" alt="Sweet Spot" className="w-6 h-6" />
+          <h1 className="text-xl font-light tracking-wide">Sweet Spot</h1>
         </div>
+        <Button variant="outline" size="sm" onClick={handleSignOut} className="border-gray-600 hover:bg-gray-700 text-gray-300 hover:text-white">
+          <LogOut className="h-4 w-4 mr-2" />
+          Logout
+        </Button>
+      </header>
 
-        {/* User Info Card */}
-        <div className="bg-slate-800 rounded-2xl p-6 mb-6">
-          <h2 className="text-lg font-medium text-slate-200 mb-4">
-            Auth User Info
-          </h2>
-          <div className="space-y-2 text-sm">
-            <p className="text-slate-300">
-              <strong>User ID:</strong>{" "}
-              <span className="text-slate-400">{user?.id}</span>
-            </p>
-            <p className="text-slate-300">
-              <strong>Email:</strong>{" "}
-              <span className="text-slate-400">{user?.email || "N/A"}</span>
-            </p>
-            <p className="text-slate-300">
-              <strong>Created:</strong>{" "}
-              <span className="text-slate-400">
-                {user?.created_at
-                  ? new Date(user.created_at).toLocaleString()
-                  : "N/A"}
-              </span>
-            </p>
+      {/* Main Content Area - Empty for now */}
+      <main className="flex-1 p-6">
+        <div className="max-w-6xl mx-auto">
+          {/* Main apartment listings will go here */}
+          <div className="text-center text-gray-500 mt-20">
+            <p className="text-lg">No apartments added yet.</p>
+            <p className="text-sm mt-2">Click the + button to add your first apartment!</p>
           </div>
         </div>
+      </main>
 
-        {/* Roommate Info Card */}
-        {roommate && (
-          <div className="bg-slate-800 rounded-2xl p-6 mb-6">
-            <h2 className="text-lg font-medium text-slate-200 mb-4">
-              Roommate Profile
-            </h2>
-            <div className="flex items-center space-x-4 mb-4">
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-medium"
-                style={{ backgroundColor: roommate.avatar_color }}
-              >
-                {roommate.name.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="font-medium text-slate-200">{roommate.name}</p>
-                <p className="text-sm text-slate-400">Linked successfully</p>
-              </div>
-            </div>
-            <div className="space-y-2 text-sm text-slate-400">
-              <p>
-                <strong className="text-slate-300">Work:</strong>{" "}
-                {roommate.work_address.split(",")[0]}
-              </p>
-              <p>
-                <strong className="text-slate-300">Roommate ID:</strong>{" "}
-                {roommate.id}
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="text-center">
-          <button
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="px-6 py-3 bg-slate-200 text-slate-900 rounded-xl hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loggingOut ? "Logging out..." : "Logout"}
-          </button>
-        </div>
-
-        {/* Debug Info */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="mt-8 p-4 bg-slate-800 rounded-xl border border-slate-700">
-            <h3 className="font-medium text-slate-200 mb-2">🔧 Debug Info</h3>
-            <div className="text-xs text-slate-400 space-y-1">
-              <p>✅ Authentication working</p>
-              <p>✅ Middleware redirected to /protected</p>
-              <p>✅ {roommate ? "Roommate linked" : "No roommate linked"}</p>
-              <p>Check console for detailed logs</p>
-            </div>
-          </div>
-        )}
+      {/* Floating Add Button */}
+      <div className="fixed bottom-6 right-6">
+        <button
+          className="rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-all duration-200 bg-blue-600 hover:bg-blue-500 text-white border-0 flex items-center justify-center"
+          onClick={() => setShowAddDialog(true)}
+        >
+          <Plus className="h-6 w-6 text-white" strokeWidth={2} />
+        </button>
       </div>
+
+      {/* Dialog Components */}
+      <AddApartment 
+        open={showAddDialog} 
+        onOpenChange={setShowAddDialog}
+        onSubmit={handleAddApartmentSubmit}
+      />
+      
+      <RouteCalculation
+        open={showRouteDialog}
+        onOpenChange={setShowRouteDialog}
+        address={currentApartmentData?.address || ""}
+        onComplete={handleRouteCalculationComplete}
+      />
+      
+      <ConfirmApartment
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        apartmentData={currentApartmentData || { url: "", address: "", rooms: "", rent: "" }}
+        routeResults={routeResults}
+        fairnessScore={fairnessScore}
+        onConfirm={handleConfirmApartment}
+      />
     </div>
   );
 }
