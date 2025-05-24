@@ -14,6 +14,10 @@ interface Roommate {
   created_at: string;
 }
 
+function nameToEmail(name: string): string {
+  return name.toLowerCase().replace(' ', '.') + '@ss.com';
+}
+
 export default function LoginPage() {
   const [roommates, setRoommates] = useState<Roommate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,13 +68,9 @@ export default function LoginPage() {
     setSigningIn(true);
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signInAnonymously({
-        options: {
-          data: {
-            roommate_id: roommateId,
-            roommate_name: roommateName,
-          }
-        }
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: nameToEmail(roommateName),
+        password: 'password'
       });
 
       if (authError) {
