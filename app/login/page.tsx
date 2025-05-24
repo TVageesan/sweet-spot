@@ -1,7 +1,9 @@
+// app/login/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { createClient } from "@/utils/supabase/client";
+import { useRouter } from 'next/navigation';
 
 interface Roommate {
   id: string;
@@ -17,11 +19,21 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
+  const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
+    checkAuthStatus();
     fetchRoommates();
   }, []);
+
+  const checkAuthStatus = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      router.push('/');
+    }
+  };
 
   const fetchRoommates = async () => {
     console.log('Fetching roommates...');
@@ -86,15 +98,9 @@ export default function LoginPage() {
         }
       }
 
-      console.log('Verifying current session...');
-      const { data: session } = await supabase.auth.getSession();
-      console.log('Current session:', {
-        user_id: session.session?.user?.id,
-        expires_at: session.session?.expires_at,
-        metadata: session.session?.user?.user_metadata
-      });
-
-      console.log('Sign in successful!');
+      console.log('Sign in successful! Redirecting to home...');
+      router.push('/');
+      
     } catch (error) {
       console.error('Exception during sign in:', error);
     } finally {
