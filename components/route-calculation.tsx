@@ -2,99 +2,70 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useState } from "react";
-import { Loader2, MapPin, Clock } from "lucide-react";
+import { Loader2, MapPin, Clock, AlertCircle } from "lucide-react";
 
 interface RouteCalculationProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   address: string;
-  onComplete: (results: RouteResult[]) => void;
+  onComplete: (results: RouteResult[], fairnessScore: number) => void;
 }
 
 interface RouteResult {
   destination: string;
   distance: string;
   duration: string;
-  status: 'loading' | 'completed';
+  status: 'loading' | 'completed' | 'error';
 }
-
-// Dummy server function that simulates API call
-const calculateRoute = async (address: string, destination: string): Promise<{ distance: string; duration: string }> => {
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  
-  const routeData = {
-    "Alex's Office": { distance: "12.4 km", duration: "28 min" },
-    "Sarah's Workplace": { distance: "8.7 km", duration: "22 min" },
-    "Mike's Company": { distance: "15.2 km", duration: "35 min" }
-  };
-  
-  return routeData[destination as keyof typeof routeData] || { distance: "10.0 km", duration: "25 min" };
-};
 
 export function RouteCalculation({ open, onOpenChange, address, onComplete }: RouteCalculationProps) {
   const [routes, setRoutes] = useState<RouteResult[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [fairnessScore, setFairnessScore] = useState<number | null>(null);
-  const [isComplete, setIsComplete] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Initialize routes when dialog opens
+  // Calculate routes when dialog opens
   useEffect(() => {
-    if (open) {
-      const initialRoutes = [
-        { destination: "Alex's Office", distance: "", duration: "", status: 'loading' as const },
-        { destination: "Sarah's Workplace", distance: "", duration: "", status: 'loading' as const },
-        { destination: "Mike's Company", distance: "", duration: "", status: 'loading' as const }
-      ];
+    if (open && address) {
+      calculateRoutes();
+    }
+  }, [open, address]);
+
+  const calculateRoutes = async () => {
+    setIsCalculating(true);
+    setError(null);
+    setRoutes([]);
+    setFairnessScore(null);
+
+    try {
+      const response = await fetch('/api/calculate-route', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ apartmentAddress: address }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to calculate routes');
+      }
+
+      const data = await response.json();
       
-      setRoutes(initialRoutes);
-      setCurrentIndex(0);
-      setFairnessScore(null);
-      setIsComplete(false);
-    }
-  }, [open]);
+      setRoutes(data.routes);
+      setFairnessScore(data.fairnessScore);
+      onComplete(data.routes, data.fairnessScore);
 
-  // Calculate routes sequentially
-  useEffect(() => {
-    if (open && currentIndex < routes.length && routes.length > 0) {
-      const calculateNext = async () => {
-        const route = routes[currentIndex];
-        const result = await calculateRoute(address, route.destination);
-        
-        setRoutes(prev => prev.map((r, idx) => 
-          idx === currentIndex 
-            ? { ...r, distance: result.distance, duration: result.duration, status: 'completed' as const }
-            : r
-        ));
-        
-        setCurrentIndex(prev => prev + 1);
-      };
-      
-      calculateNext();
+    } catch (err) {
+      console.error('Error calculating routes:', err);
+      setError('Failed to calculate routes. Please try again.');
+      setIsCalculating(false);
     }
-  }, [open, currentIndex, routes.length, address]);
-
-  // Calculate fairness score when all routes are done
-  useEffect(() => {
-    const allCompleted = routes.length > 0 && routes.every(route => route.status === 'completed');
-    
-    if (allCompleted && fairnessScore === null) {
-      setTimeout(() => {
-        setFairnessScore(78);
-        
-        setTimeout(() => {
-          setIsComplete(true);
-          
-          setTimeout(() => {
-            onComplete(routes);
-          }, 1000);
-        }, 1500);
-      }, 500);
-    }
-  }, [routes, fairnessScore, onComplete]);
+  };
 
   // Prevent closing during calculations
   const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen && !isComplete) {
+    if (!newOpen && isCalculating) {
       return; // Block closing
     }
     onOpenChange(newOpen);
@@ -104,8 +75,8 @@ export function RouteCalculation({ open, onOpenChange, address, onComplete }: Ro
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent 
         className="sm:max-w-[480px] bg-gray-800 border-gray-700 text-white"
-        onPointerDownOutside={(e) => !isComplete && e.preventDefault()}
-        onEscapeKeyDown={(e) => !isComplete && e.preventDefault()}
+        onPointerDownOutside={(e) => isCalculating && e.preventDefault()}
+        onEscapeKeyDown={(e) => isCalculating && e.preventDefault()}
       >
         <DialogHeader className="pb-4">
           <DialogTitle className="text-white text-lg flex items-center gap-2">
@@ -119,18 +90,34 @@ export function RouteCalculation({ open, onOpenChange, address, onComplete }: Ro
             From: <span className="text-white">{address}</span>
           </div>
 
+          {error && (
+            <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0" />
+              <p className="text-sm text-red-300">{error}</p>
+            </div>
+          )}
+
+          {isCalculating && routes.length === 0 && !error && (
+            <div className="flex items-center justify-center py-8">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
+                <span className="text-gray-300">Calculating optimal routes...</span>
+              </div>
+            </div>
+          )}
+
           {routes.map((route) => (
             <div key={route.destination} className="border border-gray-700 rounded-lg p-4 bg-gray-750">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-gray-300">
+                <div className="text-sm font-medium text-gray-300 max-w-[60%] truncate">
                   {route.destination}
                 </div>
                 
                 <div className="flex items-center gap-4">
-                  {route.status === 'loading' ? (
-                    <div className="flex items-center gap-2 text-blue-400">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">Calculating...</span>
+                  {route.status === 'error' ? (
+                    <div className="flex items-center gap-2 text-red-400">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-sm">Error</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-4 text-sm">
@@ -149,34 +136,25 @@ export function RouteCalculation({ open, onOpenChange, address, onComplete }: Ro
             </div>
           ))}
 
-          {routes.length > 0 && routes.every(route => route.status === 'completed') && (
+          {fairnessScore !== null && (
             <div className="border-t border-gray-700 pt-4 mt-6">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-300">Fairness Score</span>
-                {fairnessScore === null ? (
-                  <div className="flex items-center gap-2 text-blue-400">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Calculating...</span>
+                <span className="text-sm font-medium text-gray-300">Location Fairness</span>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-bold text-green-400">{fairnessScore}/100</div>
+                  <div className={`px-2 py-1 rounded text-xs ${
+                    fairnessScore >= 80 ? 'bg-green-900 text-green-300' :
+                    fairnessScore >= 60 ? 'bg-yellow-900 text-yellow-300' :
+                    'bg-red-900 text-red-300'
+                  }`}>
+                    {fairnessScore >= 80 ? 'Excellent' : fairnessScore >= 60 ? 'Good' : 'Fair'}
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="text-2xl font-bold text-green-400">{fairnessScore}/100</div>
-                    <div className={`px-2 py-1 rounded text-xs ${
-                      fairnessScore >= 80 ? 'bg-green-900 text-green-300' :
-                      fairnessScore >= 60 ? 'bg-yellow-900 text-yellow-300' :
-                      'bg-red-900 text-red-300'
-                    }`}>
-                      {fairnessScore >= 80 ? 'Excellent' : fairnessScore >= 60 ? 'Good' : 'Fair'}
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
               
-              {isComplete && (
-                <div className="text-center mt-4">
-                  <p className="text-xs text-gray-400">Calculation complete! Proceeding to confirmation...</p>
-                </div>
-              )}
+              <p className="text-xs text-gray-500 mt-2">
+                Based on public transit commute times for Monday 8 AM
+              </p>
             </div>
           )}
         </div>

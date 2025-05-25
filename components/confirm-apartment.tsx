@@ -1,8 +1,9 @@
+// components/confirm-apartment.tsx
 "use client";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Home, Euro, ExternalLink } from "lucide-react";
+import { MapPin, Clock, Home, Euro, ExternalLink, AlertCircle } from "lucide-react";
 
 interface ConfirmApartmentProps {
   open: boolean;
@@ -22,7 +23,7 @@ interface RouteResult {
   destination: string;
   distance: string;
   duration: string;
-  status: 'loading' | 'completed';
+  status: 'loading' | 'completed' | 'error';
 }
 
 export function ConfirmApartment({ 
@@ -88,21 +89,28 @@ export function ConfirmApartment({
 
           {/* Route Results */}
           <div className="bg-gray-750 rounded-lg p-3 border border-gray-700">
-            <h3 className="text-xs font-medium text-gray-300 mb-2">Commute Times</h3>
+            <h3 className="text-xs font-medium text-gray-300 mb-2">Commute Times (Public Transit - Monday 8 AM)</h3>
             <div className="space-y-1.5">
               {routeResults.map((route) => (
                 <div key={route.destination} className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">{route.destination}:</span>
-                  <div className="flex items-center gap-2 text-xs">
-                    <div className="flex items-center gap-1 text-gray-300">
-                      <MapPin className="h-3 w-3" />
-                      <span>{route.distance}</span>
+                  <span className="text-xs text-gray-400 max-w-[50%] truncate">{route.destination}:</span>
+                  {route.status === 'error' ? (
+                    <div className="flex items-center gap-1 text-red-400 text-xs">
+                      <AlertCircle className="h-3 w-3" />
+                      <span>Error</span>
                     </div>
-                    <div className="flex items-center gap-1 text-blue-400">
-                      <Clock className="h-3 w-3" />
-                      <span>{route.duration}</span>
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-gray-300">
+                        <MapPin className="h-3 w-3" />
+                        <span>{route.distance}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-blue-400">
+                        <Clock className="h-3 w-3" />
+                        <span>{route.duration}</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
