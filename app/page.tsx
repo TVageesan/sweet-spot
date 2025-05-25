@@ -1,19 +1,23 @@
+// app/page.tsx
 "use client";
 
-import { LogOut, Plus } from "lucide-react";
-import { useState } from "react";
+import { LogOut, Plus, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { AddApartment, type ApartmentFormData } from "@/components/add-apartment";
 import { RouteCalculation } from "@/components/route-calculation";
 import { ConfirmApartment } from "@/components/confirm-apartment";
+import { ApartmentCard } from "@/components/apartment-card";
 import { createClient } from "@/utils/supabase/client";
+import { ApartmentService, type Apartment } from "@/utils/apartment-service";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface RouteResult {
   destination: string;
   distance: string;
   duration: string;
-  status: 'loading' | 'completed';
+  status: 'loading' | 'completed' | 'error';
 }
 
 export default function HomePage() {
@@ -25,12 +29,95 @@ export default function HomePage() {
   const [routeResults, setRouteResults] = useState<RouteResult[]>([]);
   const [fairnessScore, setFairnessScore] = useState<number>(0);
   
+  const [apartments, setApartments] = useState<Apartment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
   const router = useRouter();
+  const [apartmentService] = useState(() => new ApartmentService());
+  const [supabase] = useState(() => createClient());
+
+  // Load apartments and set up real-time subscription
+  useEffect(() => {
+    loadApartments();
+    
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('apartments-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'apartments'
+        },
+        async (payload) => {
+          console.log('Real-time update:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            // Fetch the complete apartment with routes
+            const { data } = await supabase
+              .from('apartments')
+              .select(`
+                *,
+                routes:apartment_routes(*)
+              `)
+              .eq('id', payload.new.id)
+              .single();
+            
+            if (data) {
+              setApartments(prev => {
+                // Check if apartment already exists (to avoid duplicates)
+                if (prev.some(apt => apt.id === data.id)) {
+                  return prev;
+                }
+                return [data, ...prev];
+              });
+            }
+          } else if (payload.eventType === 'DELETE') {
+            setApartments(prev => prev.filter(apt => apt.id !== payload.old.id));
+          } else if (payload.eventType === 'UPDATE') {
+            // Fetch updated apartment with routes
+            const { data } = await supabase
+              .from('apartments')
+              .select(`
+                *,
+                routes:apartment_routes(*)
+              `)
+              .eq('id', payload.new.id)
+              .single();
+            
+            if (data) {
+              setApartments(prev => prev.map(apt => 
+                apt.id === data.id ? data : apt
+              ));
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
+
+  const loadApartments = async () => {
+    try {
+      setLoading(true);
+      const data = await apartmentService.getApartments();
+      setApartments(data);
+    } catch (error) {
+      console.error('Failed to load apartments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSignOut = async () => {
-    const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/sign-in");
+    router.push("/login");
   };
 
   const handleAddApartmentSubmit = (data: ApartmentFormData) => {
@@ -39,26 +126,50 @@ export default function HomePage() {
     setShowRouteDialog(true);
   };
 
-  const handleRouteCalculationComplete = (results: RouteResult[]) => {
+  const handleRouteCalculationComplete = (results: RouteResult[], calculatedFairnessScore: number) => {
     setRouteResults(results);
-    setFairnessScore(78); // This would come from the calculation
+    setFairnessScore(calculatedFairnessScore);
     setShowRouteDialog(false);
     setShowConfirmDialog(true);
   };
 
-  const handleConfirmApartment = () => {
-    // Here you would save the apartment to the database
-    console.log('Saving apartment:', {
-      apartmentData: currentApartmentData,
-      routeResults,
-      fairnessScore
-    });
+  const handleConfirmApartment = async () => {
+    if (!currentApartmentData) return;
     
-    // Reset state
-    setCurrentApartmentData(null);
-    setRouteResults([]);
-    setFairnessScore(0);
-    setShowConfirmDialog(false);
+    setSaving(true);
+    try {
+      // Save to Supabase
+      const newApartment = await apartmentService.createApartment(
+        currentApartmentData,
+        routeResults,
+        fairnessScore
+      );
+
+      // Note: The real-time subscription will handle adding it to the UI
+      
+      // Reset state
+      setCurrentApartmentData(null);
+      setRouteResults([]);
+      setFairnessScore(0);
+      setShowConfirmDialog(false);
+    } catch (error) {
+      console.error('Failed to save apartment:', error);
+      alert('Failed to save apartment. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteApartment = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this apartment?')) return;
+    
+    try {
+      await apartmentService.deleteApartment(id);
+      // Real-time subscription will handle removing it from the UI
+    } catch (error) {
+      console.error('Failed to delete apartment:', error);
+      alert('Failed to delete apartment. Please try again.');
+    }
   };
 
   return (
@@ -75,14 +186,40 @@ export default function HomePage() {
         </Button>
       </header>
 
-      {/* Main Content Area - Empty for now */}
+      {/* Main Content Area */}
       <main className="flex-1 p-6">
-        <div className="max-w-6xl mx-auto">
-          {/* Main apartment listings will go here */}
-          <div className="text-center text-gray-500 mt-20">
-            <p className="text-lg">No apartments added yet.</p>
-            <p className="text-sm mt-2">Click the + button to add your first apartment!</p>
-          </div>
+        <div className="max-w-7xl mx-auto">
+          {loading ? (
+            <div className="flex items-center justify-center mt-20">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+            </div>
+          ) : apartments.length === 0 ? (
+            <div className="text-center text-gray-500 mt-20">
+              <p className="text-lg">No apartments added yet.</p>
+              <p className="text-sm mt-2">Click the + button to add your first apartment!</p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="text-lg font-medium text-gray-300">
+                  {apartments.length} {apartments.length === 1 ? 'Apartment' : 'Apartments'}
+                </h2>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span>Real-time sync enabled</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {apartments.map((apartment) => (
+                  <ApartmentCard
+                    key={apartment.id}
+                    apartment={apartment}
+                    onDelete={handleDeleteApartment}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </main>
 
@@ -91,6 +228,7 @@ export default function HomePage() {
         <button
           className="rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-all duration-200 bg-blue-600 hover:bg-blue-500 text-white border-0 flex items-center justify-center"
           onClick={() => setShowAddDialog(true)}
+          disabled={saving}
         >
           <Plus className="h-6 w-6 text-white" strokeWidth={2} />
         </button>
@@ -112,7 +250,7 @@ export default function HomePage() {
       
       <ConfirmApartment
         open={showConfirmDialog}
-        onOpenChange={setShowConfirmDialog}
+        onOpenChange={(open) => !saving && setShowConfirmDialog(open)}
         apartmentData={currentApartmentData || { url: "", address: "", rooms: "", rent: "" }}
         routeResults={routeResults}
         fairnessScore={fairnessScore}

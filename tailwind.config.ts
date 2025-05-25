@@ -1,3 +1,4 @@
+// tailwind.config.ts
 import type { Config } from "tailwindcss";
 
 const config = {
@@ -51,6 +52,9 @@ const config = {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        gray: {
+          750: "#2D3748",
         },
       },
       borderRadius: {

@@ -1,3 +1,4 @@
+// components/route-calculation.tsx
 "use client";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -54,7 +55,11 @@ export function RouteCalculation({ open, onOpenChange, address, onComplete }: Ro
       
       setRoutes(data.routes);
       setFairnessScore(data.fairnessScore);
-      onComplete(data.routes, data.fairnessScore);
+
+      // Wait a moment before completing to show the results
+      setTimeout(() => {
+        onComplete(data.routes, data.fairnessScore);
+      }, 1500);
 
     } catch (err) {
       console.error('Error calculating routes:', err);
