@@ -77,7 +77,7 @@ async function getUniqueWorkAddresses(supabase: any): Promise<string[]> {
     if (error) throw error;
 
     // Get unique work addresses
-    const uniqueAddresses = [...new Set(roommates.map((r: any) => r.work_address))];
+    const uniqueAddresses = [...new Set<string>(roommates.map((r: any) => r.work_address))];
     
     // Cache the result
     workAddressCache.set(cacheKey, uniqueAddresses);
