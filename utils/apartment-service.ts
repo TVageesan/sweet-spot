@@ -104,12 +104,14 @@ export class ApartmentService {
 
   async deleteApartment(id: string): Promise<void> {
     try {
+      console.log('deleteAparment firees')
       const { error } = await this.supabase
         .from('apartments')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+      console.log('deleteApartment no error')
     } catch (error) {
       console.error('Error deleting apartment:', error);
       throw error;

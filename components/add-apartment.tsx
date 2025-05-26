@@ -1,6 +1,12 @@
 "use client";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,32 +26,52 @@ export interface ApartmentFormData {
   rent: string;
 }
 
-export function AddApartment({ open, onOpenChange, onSubmit }: AddApartmentProps) {
+export function AddApartment({
+  open,
+  onOpenChange,
+  onSubmit,
+}: AddApartmentProps) {
   const [formData, setFormData] = useState<ApartmentFormData>({
     url: "",
     address: "",
     rooms: "",
-    rent: ""
+    rent: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isFormValid) {
+      alert("Unable to submit: Missing fields!");
+      return;
+    }
     setIsSubmitting(true);
-    
+
     // Small delay to show the submitting state
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
     onSubmit(formData);
     // Reset form
     setFormData({ url: "", address: "", rooms: "", rent: "" });
     setIsSubmitting(false);
   };
+  const [isFormValid, setIsFormValid] = useState(false);
 
   const handleInputChange = (field: keyof ApartmentFormData, value: string) => {
     if (!isSubmitting) {
-      setFormData(prev => ({ ...prev, [field]: value }));
+      const updatedData = { ...formData, [field]: value };
+      setFormData((prev) => ({ ...prev, [field]: value }));
+      setIsFormValid(validateForm(updatedData));
     }
+  };
+
+  const validateForm = (data: ApartmentFormData) => {
+    return (
+      data.url.trim() !== "" &&
+      data.address.trim() !== "" &&
+      data.rooms.trim() !== "" &&
+      data.rent.trim() !== ""
+    );
   };
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -62,7 +88,7 @@ export function AddApartment({ open, onOpenChange, onSubmit }: AddApartmentProps
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent 
+      <DialogContent
         className="sm:max-w-[420px] bg-gray-800 border-gray-700 text-white"
         onPointerDownOutside={(e) => {
           if (isSubmitting) {
@@ -77,9 +103,11 @@ export function AddApartment({ open, onOpenChange, onSubmit }: AddApartmentProps
       />
       <DialogContent className="sm:max-w-[420px] bg-gray-800 border-gray-700 text-white">
         <DialogHeader className="pb-2">
-          <DialogTitle className="text-white text-lg">Add New Apartment</DialogTitle>
+          <DialogTitle className="text-white text-lg">
+            Add New Apartment
+          </DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* URL Field */}
           <div className="space-y-1">
@@ -87,28 +115,30 @@ export function AddApartment({ open, onOpenChange, onSubmit }: AddApartmentProps
               Listing URL
             </Label>
             <Input
+            required
               id="url"
               type="url"
-              placeholder="https://www.immobilienscout24.de/..."
               className="bg-gray-700 border-gray-600 text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 h-8"
               value={formData.url}
-              onChange={(e) => handleInputChange('url', e.target.value)}
+              onChange={(e) => handleInputChange("url", e.target.value)}
               disabled={isSubmitting}
             />
           </div>
 
           {/* Address Field */}
           <div className="space-y-1">
-            <Label htmlFor="address" className="text-xs font-medium text-gray-300">
+            <Label
+              htmlFor="address"
+              className="text-xs font-medium text-gray-300"
+            >
               Home Address
             </Label>
             <Input
               id="address"
               type="text"
-              placeholder="Müllerstraße 12, 80469 München"
               className="bg-gray-700 border-gray-600 text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 h-8"
               value={formData.address}
-              onChange={(e) => handleInputChange('address', e.target.value)}
+              onChange={(e) => handleInputChange("address", e.target.value)}
               required
               disabled={isSubmitting}
             />
@@ -116,7 +146,10 @@ export function AddApartment({ open, onOpenChange, onSubmit }: AddApartmentProps
 
           {/* Number of Rooms */}
           <div className="space-y-1">
-            <Label htmlFor="rooms" className="text-xs font-medium text-gray-300">
+            <Label
+              htmlFor="rooms"
+              className="text-xs font-medium text-gray-300"
+            >
               Number of Rooms
             </Label>
             <Input
@@ -124,10 +157,9 @@ export function AddApartment({ open, onOpenChange, onSubmit }: AddApartmentProps
               type="number"
               min="1"
               max="10"
-              placeholder="3"
               className="bg-gray-700 border-gray-600 text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 h-8"
               value={formData.rooms}
-              onChange={(e) => handleInputChange('rooms', e.target.value)}
+              onChange={(e) => handleInputChange("rooms", e.target.value)}
               required
               disabled={isSubmitting}
             />
@@ -143,11 +175,9 @@ export function AddApartment({ open, onOpenChange, onSubmit }: AddApartmentProps
                 id="rent"
                 type="number"
                 min="0"
-                step="0.01"
-                placeholder="1200"
                 className="bg-gray-700 border-gray-600 text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 pr-8 h-8"
                 value={formData.rent}
-                onChange={(e) => handleInputChange('rent', e.target.value)}
+                onChange={(e) => handleInputChange("rent", e.target.value)}
                 required
                 disabled={isSubmitting}
               />
@@ -181,7 +211,7 @@ export function AddApartment({ open, onOpenChange, onSubmit }: AddApartmentProps
                 <span>Processing...</span>
               </div>
             ) : (
-              'Calculate Routes'
+              "Calculate Routes"
             )}
           </Button>
         </DialogFooter>

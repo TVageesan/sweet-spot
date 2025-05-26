@@ -41,7 +41,6 @@ export default function HomePage() {
   useEffect(() => {
     loadApartments();
     
-    // Set up real-time subscription
     const channel = supabase
       .channel('apartments-changes')
       .on(
@@ -75,6 +74,7 @@ export default function HomePage() {
               });
             }
           } else if (payload.eventType === 'DELETE') {
+            console.log('received DELETE event');
             setApartments(prev => prev.filter(apt => apt.id !== payload.old.id));
           } else if (payload.eventType === 'UPDATE') {
             // Fetch updated apartment with routes
@@ -97,7 +97,6 @@ export default function HomePage() {
       )
       .subscribe();
 
-    // Cleanup subscription
     return () => {
       supabase.removeChannel(channel);
     };
@@ -138,23 +137,19 @@ export default function HomePage() {
     
     setSaving(true);
     try {
-      // Save to Supabase
-      const newApartment = await apartmentService.createApartment(
+      await apartmentService.createApartment(
         currentApartmentData,
         routeResults,
         fairnessScore
       );
 
-      // Note: The real-time subscription will handle adding it to the UI
-      
-      // Reset state
       setCurrentApartmentData(null);
       setRouteResults([]);
       setFairnessScore(0);
       setShowConfirmDialog(false);
     } catch (error) {
       console.error('Failed to save apartment:', error);
-      alert('Failed to save apartment. Please try again.');
+      alert('Failed to save apartment. Please scream at Thiru to fix it.');
     } finally {
       setSaving(false);
     }
@@ -164,11 +159,11 @@ export default function HomePage() {
     if (!confirm('Are you sure you want to delete this apartment?')) return;
     
     try {
+      console.log('handledeletePaarmtnet fires', id)
       await apartmentService.deleteApartment(id);
-      // Real-time subscription will handle removing it from the UI
     } catch (error) {
+      alert('Failed to delete apartment. Please scream at Thiru to fix it.')
       console.error('Failed to delete apartment:', error);
-      alert('Failed to delete apartment. Please try again.');
     }
   };
 
@@ -177,7 +172,6 @@ export default function HomePage() {
       {/* Header with Logout */}
       <header className="flex justify-between items-center px-6 py-4 bg-gray-800 border-b border-gray-700">
         <div className="flex items-center gap-3">
-          <img src="/favicon.ico" alt="Sweet Spot" className="w-6 h-6" />
           <h1 className="text-xl font-light tracking-wide">Sweet Spot</h1>
         </div>
         <Button variant="outline" size="sm" onClick={handleSignOut} className="border-gray-600 hover:bg-gray-700 text-gray-300 hover:text-white">
