@@ -9,7 +9,7 @@ interface RouteCalculationProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   address: string;
-  onComplete: (results: RouteResult[], fairnessScore: number) => void;
+  onComplete: (results: RouteResult[], mean: number, variance: number, fairness: number) => void;
 }
 
 interface RouteResult {
@@ -21,6 +21,8 @@ interface RouteResult {
 
 export function RouteCalculation({ open, onOpenChange, address, onComplete }: RouteCalculationProps) {
   const [routes, setRoutes] = useState<RouteResult[]>([]);
+  const [mean, setMean] = useState<number | null>(null);
+  const [variance, setVariance] = useState<number | null>(null);
   const [fairnessScore, setFairnessScore] = useState<number | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,8 @@ export function RouteCalculation({ open, onOpenChange, address, onComplete }: Ro
     setIsCalculating(true);
     setError(null);
     setRoutes([]);
+    setMean(null);
+    setVariance(null);
     setFairnessScore(null);
 
     try {
@@ -54,11 +58,14 @@ export function RouteCalculation({ open, onOpenChange, address, onComplete }: Ro
       const data = await response.json();
       
       setRoutes(data.routes);
+      
+      setMean(data.mean);
+      setVariance(data.variance);
       setFairnessScore(data.fairnessScore);
 
       // Wait a moment before completing to show the results
       setTimeout(() => {
-        onComplete(data.routes, data.fairnessScore);
+        onComplete(data.routes, data.mean, data.variance, data.fairnessScore);
       }, 1500);
 
     } catch (err) {
