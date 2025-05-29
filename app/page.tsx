@@ -28,6 +28,7 @@ export default function HomePage() {
   const [currentApartmentData, setCurrentApartmentData] = useState<ApartmentFormData | null>(null);
   const [routeResults, setRouteResults] = useState<RouteResult[]>([]);
   const [fairnessScore, setFairnessScore] = useState<number>(0);
+  const [meanScore, setMeanScore] = useState<number>(0);
   
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,8 +126,9 @@ export default function HomePage() {
     setShowRouteDialog(true);
   };
 
-  const handleRouteCalculationComplete = (results: RouteResult[], calculatedFairnessScore: number) => {
+  const handleRouteCalculationComplete = (results: RouteResult[], calculatedMeanScore: number, calculatedFairnessScore: number) => {
     setRouteResults(results);
+    setMeanScore(calculatedMeanScore);
     setFairnessScore(calculatedFairnessScore);
     setShowRouteDialog(false);
     setShowConfirmDialog(true);
@@ -140,12 +142,14 @@ export default function HomePage() {
       await apartmentService.createApartment(
         currentApartmentData,
         routeResults,
-        fairnessScore
+        fairnessScore,
+        meanScore
       );
 
       setCurrentApartmentData(null);
       setRouteResults([]);
       setFairnessScore(0);
+      setMeanScore(0);
       setShowConfirmDialog(false);
     } catch (error) {
       console.error('Failed to save apartment:', error);
@@ -248,6 +252,7 @@ export default function HomePage() {
         apartmentData={currentApartmentData || { url: "", address: "", rooms: "", rent: "" }}
         routeResults={routeResults}
         fairnessScore={fairnessScore}
+        meanScore={meanScore}
         onConfirm={handleConfirmApartment}
       />
     </div>

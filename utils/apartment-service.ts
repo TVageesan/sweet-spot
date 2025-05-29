@@ -8,6 +8,7 @@ export interface Apartment {
   rooms: number;
   rent: number;
   fairness_score: number;
+  mean: number;
   created_at: string;
   created_by?: string;
   routes?: ApartmentRoute[];
@@ -37,7 +38,8 @@ export class ApartmentService {
       rent: string;
     },
     routes: ApartmentRoute[],
-    fairnessScore: number
+    fairnessScore: number,
+    meanScore: number
   ): Promise<Apartment> {
     try {
       // Insert apartment
@@ -50,7 +52,8 @@ export class ApartmentService {
           address: apartmentData.address,
           rooms: parseInt(apartmentData.rooms),
           rent: parseFloat(apartmentData.rent),
-          fairness_score: fairnessScore
+          fairness_score: fairnessScore,
+          mean: meanScore
         })
         .select()
         .single();
@@ -59,12 +62,13 @@ export class ApartmentService {
 
       // Insert routes
       if (apartment && routes.length > 0) {
+              console.log("Inserting route", routes);
+
         const routesData = routes.map(route => ({
           apartment_id: apartment.id,
           destination: route.destination,
           distance: route.distance,
-          duration: route.duration,
-          status: route.status
+          duration: route.duration
         }));
 
         const { error: routesError } = await this.supabase

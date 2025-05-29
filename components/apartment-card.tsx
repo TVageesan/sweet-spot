@@ -1,7 +1,7 @@
 // components/apartment-card.tsx
 "use client";
 
-import { Home, MapPin, Clock, Euro, ExternalLink, Users, Trash2 } from "lucide-react";
+import { Home, MapPin, Clock, Euro, ExternalLink, Users, Trash2, Target, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Apartment } from "@/utils/apartment-service";
 
@@ -11,18 +11,6 @@ interface ApartmentCardProps {
 }
 
 export function ApartmentCard({ apartment, onDelete }: ApartmentCardProps) {
-  const getFairnessColor = (score: number) => {
-    if (score >= 80) return "text-green-400 bg-green-900/20 border-green-800";
-    if (score >= 60) return "text-yellow-400 bg-yellow-900/20 border-yellow-800";
-    return "text-red-400 bg-red-900/20 border-red-800";
-  };
-
-  const getFairnessLabel = (score: number) => {
-    if (score >= 80) return "Excellent";
-    if (score >= 60) return "Good";
-    return "Fair";
-  };
-
   return (
     <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden hover:border-gray-600 transition-colors">
       {/* Header */}
@@ -59,13 +47,22 @@ export function ApartmentCard({ apartment, onDelete }: ApartmentCardProps) {
         </div>
       </div>
 
-      {/* Fairness Score */}
+      {/* Location Scores */}
       <div className="px-4 py-3 border-b border-gray-700">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-400">Location Fairness</span>
-          <div className={`flex items-center gap-2 px-2 py-1 rounded-full border ${getFairnessColor(apartment.fairness_score)}`}>
-            <span className="text-sm font-bold">{apartment.fairness_score}/100</span>
-            <span className="text-xs">{getFairnessLabel(apartment.fairness_score)}</span>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <Target className="h-3 w-3 text-blue-400" />
+              <span className="text-xs text-gray-400">Fairness Score</span>
+            </div>
+            <span className="text-sm font-medium text-white">{apartment.fairness_score}/100</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <Timer className="h-3 w-3 text-orange-400" />
+              <span className="text-xs text-gray-400">Average Time</span>
+            </div>
+            <span className="text-sm font-medium text-white">{apartment.mean || 0} mins</span>
           </div>
         </div>
       </div>

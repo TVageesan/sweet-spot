@@ -9,7 +9,7 @@ interface RouteCalculationProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   address: string;
-  onComplete: (results: RouteResult[], mean: number, variance: number, fairness: number) => void;
+  onComplete: (results: RouteResult[], mean: number, fairness: number) => void;
 }
 
 interface RouteResult {
@@ -60,12 +60,11 @@ export function RouteCalculation({ open, onOpenChange, address, onComplete }: Ro
       setRoutes(data.routes);
       
       setMean(data.mean);
-      setVariance(data.variance);
       setFairnessScore(data.fairnessScore);
 
       // Wait a moment before completing to show the results
       setTimeout(() => {
-        onComplete(data.routes, data.mean, data.variance, data.fairnessScore);
+        onComplete(data.routes, data.mean, data.fairnessScore);
       }, 1500);
 
     } catch (err) {
