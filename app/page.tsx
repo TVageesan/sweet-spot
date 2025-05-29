@@ -2,15 +2,16 @@
 "use client";
 
 import { LogOut, Plus, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { AddApartment, type ApartmentFormData } from "@/components/add-apartment";
 import { RouteCalculation } from "@/components/route-calculation";
 import { ConfirmApartment } from "@/components/confirm-apartment";
 import { ApartmentCard } from "@/components/apartment-card";
+import { ApartmentFilters } from "@/components/apartment-filters";
 import { createClient } from "@/utils/supabase/client";
-import { ApartmentService, type Apartment } from "@/utils/apartment-service";
+import { ApartmentService, type Apartment, type BookingStatus } from "@/utils/apartment-service";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface RouteResult {
@@ -18,6 +19,12 @@ interface RouteResult {
   distance: string;
   duration: string;
   status: 'loading' | 'completed' | 'error';
+}
+
+interface FilterOptions {
+  status: BookingStatus | 'all';
+  sortBy: 'date' | 'rent' | 'fairness' | 'status' | 'mean';
+  sortOrder: 'asc' | 'desc';
 }
 
 export default function HomePage() {
@@ -33,6 +40,16 @@ export default function HomePage() {
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>('');
+  const [roommateNames, setRoommateNames] = useState<Record<string, string>>({});
+  
+  // Filter state
+  const [filters, setFilters] = useState<FilterOptions>({
+    status: 'all',
+    sortBy: 'date',
+    sortOrder: 'desc'
+  });
   
   const router = useRouter();
   const [apartmentService] = useState(() => new ApartmentService());
@@ -40,7 +57,9 @@ export default function HomePage() {
 
   // Load apartments and set up real-time subscription
   useEffect(() => {
+    loadCurrentUser();
     loadApartments();
+    loadRoommateNames();
     
     const channel = supabase
       .channel('apartments-changes')
@@ -103,6 +122,43 @@ export default function HomePage() {
     };
   }, [supabase]);
 
+  const loadCurrentUser = async () => {
+    try {
+      const user = await apartmentService.getCurrentUser();
+      setCurrentUser(user);
+      
+      if (user) {
+        const roommateInfo = await apartmentService.getRoommateInfo(user.id);
+        if (roommateInfo) {
+          setCurrentUserName(roommateInfo.name);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load current user:', error);
+    }
+  };
+
+  const loadRoommateNames = async () => {
+    try {
+      const { data: roommates, error } = await supabase
+        .from('roommates')
+        .select('auth_user_id, name');
+      
+      if (error) throw error;
+      
+      const nameMap: Record<string, string> = {};
+      roommates?.forEach(roommate => {
+        if (roommate.auth_user_id) {
+          nameMap[roommate.auth_user_id] = roommate.name;
+        }
+      });
+      
+      setRoommateNames(nameMap);
+    } catch (error) {
+      console.error('Failed to load roommate names:', error);
+    }
+  };
+
   const loadApartments = async () => {
     try {
       setLoading(true);
@@ -159,6 +215,16 @@ export default function HomePage() {
     }
   };
 
+  const handleStatusChange = async (apartmentId: string, newStatus: BookingStatus) => {
+    try {
+      const userId = newStatus === 'booking' ? currentUser?.id : undefined;
+      await apartmentService.updateApartmentStatus(apartmentId, newStatus, userId);
+    } catch (error) {
+      console.error('Failed to update apartment status:', error);
+      alert('Failed to update apartment status. Please try again.');
+    }
+  };
+
   const handleDeleteApartment = async (id: string) => {
     if (!confirm('Are you sure you want to delete this apartment?')) return;
     
@@ -170,6 +236,61 @@ export default function HomePage() {
       console.error('Failed to delete apartment:', error);
     }
   };
+
+  // Filter and sort apartments
+  const filteredAndSortedApartments = useMemo(() => {
+    let filtered = apartments;
+    
+    // Apply status filter
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(apt => apt.status === filters.status);
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (filters.sortBy) {
+        case 'date':
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+        case 'rent':
+          comparison = a.rent - b.rent;
+          break;
+        case 'fairness':
+          comparison = a.fairness_score - b.fairness_score;
+          break;
+        case 'mean':
+          comparison = (a.mean || 0) - (b.mean || 0);
+          break;
+        case 'status':
+          const statusOrder = { 'booked': 0, 'booking': 1, 'not_booking': 2, 'rejected': 3 };
+          comparison = statusOrder[a.status] - statusOrder[b.status];
+          break;
+      }
+      
+      return filters.sortOrder === 'asc' ? comparison : -comparison;
+    });
+    
+    return filtered;
+  }, [apartments, filters]);
+
+  // Calculate apartment counts for filter badges
+  const apartmentCounts = useMemo(() => {
+    const counts = {
+      all: apartments.length,
+      not_booking: 0,
+      booking: 0,
+      booked: 0,
+      rejected: 0
+    };
+    
+    apartments.forEach(apt => {
+      counts[apt.status]++;
+    });
+    
+    return counts;
+  }, [apartments]);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -200,22 +321,56 @@ export default function HomePage() {
             <>
               <div className="mb-6 flex items-center justify-between">
                 <h2 className="text-lg font-medium text-gray-300">
-                  {apartments.length} {apartments.length === 1 ? 'Apartment' : 'Apartments'}
+                  {apartmentCounts.all} {apartmentCounts.all === 1 ? 'Apartment' : 'Apartments'}
+                  {filters.status !== 'all' && (
+                    <span className="text-gray-500 ml-2">
+                      ({filteredAndSortedApartments.length} shown)
+                    </span>
+                  )}
                 </h2>
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   <span>Real-time sync enabled</span>
                 </div>
               </div>
+              
+              <ApartmentFilters
+                filters={filters}
+                onFiltersChange={setFilters}
+                apartmentCounts={apartmentCounts}
+              />
+              
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {apartments.map((apartment) => (
-                  <ApartmentCard
-                    key={apartment.id}
-                    apartment={apartment}
-                    onDelete={handleDeleteApartment}
-                  />
-                ))}
+                {filteredAndSortedApartments.map((apartment) => {
+                  const bookerName = apartment.booking_user_id ? roommateNames[apartment.booking_user_id] : undefined;
+                  
+                  return (
+                    <ApartmentCard
+                      key={apartment.id}
+                      apartment={apartment}
+                      currentUserId={currentUser?.id}
+                      currentUserName={currentUserName}
+                      bookerName={bookerName}
+                      onDelete={handleDeleteApartment}
+                      onStatusChange={handleStatusChange}
+                    />
+                  );
+                })}
               </div>
+              
+              {filteredAndSortedApartments.length === 0 && filters.status !== 'all' && (
+                <div className="text-center text-gray-500 mt-10">
+                  <p>No apartments found with the current filters.</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFilters({ status: 'all', sortBy: 'date', sortOrder: 'desc' })}
+                    className="mt-2 text-blue-400 hover:text-blue-300"
+                  >
+                    Clear filters
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </div>
