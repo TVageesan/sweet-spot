@@ -24,7 +24,7 @@ export function ApartmentCard({
   onDelete,
   onStatusChange 
 }: ApartmentCardProps) {
-  const isCurrentUserBooking = apartment.booking_user_id === currentUserId;
+  const isCurrentUserBooking = true;
   const canModifyStatus = apartment.status === 'not_booking' || isCurrentUserBooking;
 
   const handleStatusChange = (newStatus: BookingStatus) => {

@@ -39,33 +39,8 @@ export function AddApartment({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isFormValid) {
-      alert("Unable to submit: Missing fields!");
-      return;
-    }
-    setIsSubmitting(true);
-
-    // Small delay to show the submitting state
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    onSubmit(formData);
-    // Reset form
-    setFormData({ url: "", address: "", rooms: "", rent: "" });
-    setIsSubmitting(false);
-  };
-  const [isFormValid, setIsFormValid] = useState(false);
-
-  const handleInputChange = (field: keyof ApartmentFormData, value: string) => {
-    if (!isSubmitting) {
-      const updatedData = { ...formData, [field]: value };
-      setFormData((prev) => ({ ...prev, [field]: value }));
-      setIsFormValid(validateForm(updatedData));
-    }
-  };
-
   const validateForm = (data: ApartmentFormData) => {
+    console.log('formData', formData)
     return (
       data.url.trim() !== "" &&
       data.address.trim() !== "" &&
@@ -74,11 +49,29 @@ export function AddApartment({
     );
   };
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen && isSubmitting) {
-      // Don't allow closing during submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm(formData)) {
+      alert("Unable to submit: Missing fields!");
       return;
     }
+
+    setIsSubmitting(true);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    onSubmit(formData);
+    setFormData({ url: "", address: "", rooms: "", rent: "" });
+    setIsSubmitting(false);
+  };
+
+  const handleInputChange = (field: keyof ApartmentFormData, value: string) => {
+    console.log("field", field,"value", value)
+    if (!isSubmitting) {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+    }
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && isSubmitting) return;
     if (!newOpen) {
       setFormData({ url: "", address: "", rooms: "", rent: "" });
       setIsSubmitting(false);
@@ -91,17 +84,12 @@ export function AddApartment({
       <DialogContent
         className="sm:max-w-[420px] bg-gray-800 border-gray-700 text-white"
         onPointerDownOutside={(e) => {
-          if (isSubmitting) {
-            e.preventDefault();
-          }
+          if (isSubmitting) e.preventDefault();
         }}
         onEscapeKeyDown={(e) => {
-          if (isSubmitting) {
-            e.preventDefault();
-          }
+          if (isSubmitting) e.preventDefault();
         }}
-      />
-      <DialogContent className="sm:max-w-[420px] bg-gray-800 border-gray-700 text-white">
+      >
         <DialogHeader className="pb-2">
           <DialogTitle className="text-white text-lg">
             Add New Apartment
@@ -115,7 +103,7 @@ export function AddApartment({
               Listing URL
             </Label>
             <Input
-            required
+              required
               id="url"
               type="url"
               className="bg-gray-700 border-gray-600 text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 h-8"
@@ -127,32 +115,27 @@ export function AddApartment({
 
           {/* Address Field */}
           <div className="space-y-1">
-            <Label
-              htmlFor="address"
-              className="text-xs font-medium text-gray-300"
-            >
+            <Label htmlFor="address" className="text-xs font-medium text-gray-300">
               Home Address
             </Label>
             <Input
+              required
               id="address"
               type="text"
               className="bg-gray-700 border-gray-600 text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 h-8"
               value={formData.address}
               onChange={(e) => handleInputChange("address", e.target.value)}
-              required
               disabled={isSubmitting}
             />
           </div>
 
           {/* Number of Rooms */}
           <div className="space-y-1">
-            <Label
-              htmlFor="rooms"
-              className="text-xs font-medium text-gray-300"
-            >
+            <Label htmlFor="rooms" className="text-xs font-medium text-gray-300">
               Number of Rooms
             </Label>
             <Input
+              required
               id="rooms"
               type="number"
               min="1"
@@ -160,7 +143,6 @@ export function AddApartment({
               className="bg-gray-700 border-gray-600 text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 h-8"
               value={formData.rooms}
               onChange={(e) => handleInputChange("rooms", e.target.value)}
-              required
               disabled={isSubmitting}
             />
           </div>
@@ -172,13 +154,13 @@ export function AddApartment({
             </Label>
             <div className="relative">
               <Input
+                required
                 id="rent"
-                type="number"
+                type="string"
                 min="0"
                 className="bg-gray-700 border-gray-600 text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500 pr-8 h-8"
                 value={formData.rent}
                 onChange={(e) => handleInputChange("rent", e.target.value)}
-                required
                 disabled={isSubmitting}
               />
               <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs">

@@ -266,7 +266,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       routes,
-      mean: weightedAvgDuration,
+      mean: Number(Math.round(weightedAvgDuration)),
       variance: weightedVariance,
       fairnessScore
     });
