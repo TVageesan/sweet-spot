@@ -3,7 +3,7 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Home, Euro, ExternalLink, AlertCircle, Target, Timer } from "lucide-react";
+import { MapPin, Clock, Home, Euro, ExternalLink, AlertCircle, Target } from "lucide-react";
 
 interface ConfirmApartmentProps {
   open: boolean;
@@ -40,18 +40,6 @@ export function ConfirmApartment({
   const handleConfirm = () => {
     onConfirm();
     onOpenChange(false);
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-400 bg-green-900/20 border-green-800';
-    if (score >= 60) return 'text-yellow-400 bg-yellow-900/20 border-yellow-800';
-    return 'text-red-400 bg-red-900/20 border-red-800';
-  };
-
-  const getScoreLabel = (score: number) => {
-    if (score >= 80) return 'Excellent';
-    if (score >= 60) return 'Good';
-    return 'Fair';
   };
 
   return (
@@ -130,25 +118,22 @@ export function ConfirmApartment({
             </div>
           </div>
 
-          {/* Composite Scoring Section */}
+          {/* Location Scoring Section */}
           <div className="bg-gray-750 rounded-lg p-3 border border-gray-700">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-medium text-gray-300">Average:</h3>
+              <h3 className="text-xs font-medium text-gray-300">Average Commute:</h3>
               <div className="flex items-center gap-2">
                 <div className="text-lg font-bold text-green-400">{meanScore} minutes</div>
               </div>
             </div>
             
-            {/* Individual Score Breakdown */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <Target className="h-3 w-3 text-blue-400" />
-                  <span className="text-xs text-gray-400">Fairness:</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-medium text-white">{fairnessScore}/100</span>
-                </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <Target className="h-3 w-3 text-blue-400" />
+                <span className="text-xs text-gray-400">Fairness Score:</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-xs font-medium text-white">{fairnessScore}/100</span>
               </div>
             </div>
           </div>

@@ -11,8 +11,7 @@ import { ConfirmApartment } from "@/components/confirm-apartment";
 import { ApartmentCard } from "@/components/apartment-card";
 import { ApartmentFilters } from "@/components/apartment-filters";
 import { createClient } from "@/utils/supabase/client";
-import { ApartmentService, type Apartment, type BookingStatus } from "@/utils/apartment-service";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { ApartmentService, type Apartment } from "@/utils/apartment-service";
 
 interface RouteResult {
   destination: string;
@@ -22,8 +21,7 @@ interface RouteResult {
 }
 
 interface FilterOptions {
-  status: BookingStatus | 'all';
-  sortBy: 'date' | 'rent' | 'fairness' | 'status' | 'mean';
+  sortBy: 'date' | 'rent' | 'fairness' | 'mean';
   sortOrder: 'asc' | 'desc';
 }
 
@@ -42,11 +40,9 @@ export default function HomePage() {
   const [saving, setSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentUserName, setCurrentUserName] = useState<string>('');
-  const [roommateNames, setRoommateNames] = useState<Record<string, string>>({});
   
   // Filter state
   const [filters, setFilters] = useState<FilterOptions>({
-    status: 'all',
     sortBy: 'date',
     sortOrder: 'desc'
   });
@@ -59,7 +55,6 @@ export default function HomePage() {
   useEffect(() => {
     loadCurrentUser();
     loadApartments();
-    loadRoommateNames();
     
     const channel = supabase
       .channel('apartments-changes')
@@ -138,27 +133,6 @@ export default function HomePage() {
     }
   };
 
-  const loadRoommateNames = async () => {
-    try {
-      const { data: roommates, error } = await supabase
-        .from('roommates')
-        .select('auth_user_id, name');
-      
-      if (error) throw error;
-      
-      const nameMap: Record<string, string> = {};
-      roommates?.forEach(roommate => {
-        if (roommate.auth_user_id) {
-          nameMap[roommate.auth_user_id] = roommate.name;
-        }
-      });
-      
-      setRoommateNames(nameMap);
-    } catch (error) {
-      console.error('Failed to load roommate names:', error);
-    }
-  };
-
   const loadApartments = async () => {
     try {
       setLoading(true);
@@ -215,21 +189,11 @@ export default function HomePage() {
     }
   };
 
-  const handleStatusChange = async (apartmentId: string, newStatus: BookingStatus) => {
-    try {
-      const userId = newStatus === 'booking' ? currentUser?.id : undefined;
-      await apartmentService.updateApartmentStatus(apartmentId, newStatus, userId);
-    } catch (error) {
-      console.error('Failed to update apartment status:', error);
-      alert('Failed to update apartment status. Please try again.');
-    }
-  };
-
   const handleDeleteApartment = async (id: string) => {
     if (!confirm('Are you sure you want to delete this apartment?')) return;
     
     try {
-      console.log('handledeletePaarmtnet fires', id)
+      console.log('handleDeleteApartment fires', id)
       await apartmentService.deleteApartment(id);
     } catch (error) {
       alert('Failed to delete apartment. Please scream at Thiru to fix it.')
@@ -239,12 +203,7 @@ export default function HomePage() {
 
   // Filter and sort apartments
   const filteredAndSortedApartments = useMemo(() => {
-    let filtered = apartments;
-    
-    // Apply status filter
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(apt => apt.status === filters.status);
-    }
+    let filtered = [...apartments];
     
     // Apply sorting
     filtered.sort((a, b) => {
@@ -263,10 +222,6 @@ export default function HomePage() {
         case 'mean':
           comparison = (a.mean || 0) - (b.mean || 0);
           break;
-        case 'status':
-          const statusOrder = { 'booked': 0, 'booking': 1, 'not_booking': 2, 'rejected': 3 };
-          comparison = statusOrder[a.status] - statusOrder[b.status];
-          break;
       }
       
       return filters.sortOrder === 'asc' ? comparison : -comparison;
@@ -274,23 +229,6 @@ export default function HomePage() {
     
     return filtered;
   }, [apartments, filters]);
-
-  // Calculate apartment counts for filter badges
-  const apartmentCounts = useMemo(() => {
-    const counts = {
-      all: apartments.length,
-      not_booking: 0,
-      booking: 0,
-      booked: 0,
-      rejected: 0
-    };
-    
-    apartments.forEach(apt => {
-      counts[apt.status]++;
-    });
-    
-    return counts;
-  }, [apartments]);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -321,12 +259,7 @@ export default function HomePage() {
             <>
               <div className="mb-6 flex items-center justify-between">
                 <h2 className="text-lg font-medium text-gray-300">
-                  {apartmentCounts.all} {apartmentCounts.all === 1 ? 'Apartment' : 'Apartments'}
-                  {filters.status !== 'all' && (
-                    <span className="text-gray-500 ml-2">
-                      ({filteredAndSortedApartments.length} shown)
-                    </span>
-                  )}
+                  Apartment Listings
                 </h2>
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -337,40 +270,20 @@ export default function HomePage() {
               <ApartmentFilters
                 filters={filters}
                 onFiltersChange={setFilters}
-                apartmentCounts={apartmentCounts}
+                totalCount={apartments.length}
               />
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredAndSortedApartments.map((apartment) => {
-                  const bookerName = apartment.booking_user_id ? roommateNames[apartment.booking_user_id] : undefined;
-                  
-                  return (
-                    <ApartmentCard
-                      key={apartment.id}
-                      apartment={apartment}
-                      currentUserId={currentUser?.id}
-                      currentUserName={currentUserName}
-                      bookerName={bookerName}
-                      onDelete={handleDeleteApartment}
-                      onStatusChange={handleStatusChange}
-                    />
-                  );
-                })}
+                {filteredAndSortedApartments.map((apartment) => (
+                  <ApartmentCard
+                    key={apartment.id}
+                    apartment={apartment}
+                    currentUserId={currentUser?.id}
+                    currentUserName={currentUserName}
+                    onDelete={handleDeleteApartment}
+                  />
+                ))}
               </div>
-              
-              {filteredAndSortedApartments.length === 0 && filters.status !== 'all' && (
-                <div className="text-center text-gray-500 mt-10">
-                  <p>No apartments found with the current filters.</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setFilters({ status: 'all', sortBy: 'date', sortOrder: 'desc' })}
-                    className="mt-2 text-blue-400 hover:text-blue-300"
-                  >
-                    Clear filters
-                  </Button>
-                </div>
-              )}
             </>
           )}
         </div>
