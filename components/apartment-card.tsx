@@ -1,23 +1,75 @@
 // components/apartment-card.tsx
 "use client";
 
-import { Home, MapPin, Clock, Euro, ExternalLink, Users, Trash2, Target, Timer } from "lucide-react";
+import { Home, MapPin, Clock, Euro, ExternalLink, Users, Trash2, Target, Timer, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Apartment } from "@/utils/apartment-service";
+import { StatusDropdown } from "@/components/status-dropdown";
+import { useState, useEffect } from "react";
+import { 
+  type Apartment, 
+  ApartmentStatus, 
+  STATUS_LABELS,
+  type RoommateInfo,
+  ApartmentService 
+} from "@/utils/apartment-service";
 
 interface ApartmentCardProps {
   apartment: Apartment;
   currentUserId?: string;
   currentUserName?: string;
   onDelete?: (id: string) => void;
+  onStatusChange?: (apartmentId: string, status: ApartmentStatus, bookedBy?: string) => void;
 }
 
 export function ApartmentCard({ 
   apartment, 
   currentUserId,
   currentUserName,
-  onDelete
+  onDelete,
+  onStatusChange
 }: ApartmentCardProps) {
+  const [bookerInfo, setBookerInfo] = useState<RoommateInfo | null>(null);
+  const [apartmentService] = useState(() => new ApartmentService());
+
+  // Debug: Log the apartment object to see its structure
+  console.log('ApartmentCard apartment object:', apartment);
+
+  // Load booker info when apartment is booked
+  useEffect(() => {
+    if (apartment.status === ApartmentStatus.BOOKING && apartment.booked_by) {
+      loadBookerInfo();
+    } else {
+      setBookerInfo(null);
+    }
+  }, [apartment.status, apartment.booked_by]);
+
+  const loadBookerInfo = async () => {
+    if (!apartment.booked_by) return;
+    
+    try {
+      const info = await apartmentService.getRoommateById(apartment.booked_by);
+      setBookerInfo(info);
+    } catch (error) {
+      console.error('Failed to load booker info:', error);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: ApartmentStatus) => {
+    console.log('ApartmentCard handleStatusChange called:', { 
+      apartmentId: apartment.id, 
+      newStatus, 
+      currentUserId, 
+      onStatusChange: !!onStatusChange 
+    });
+    
+    if (!onStatusChange || !currentUserId) {
+      console.error('Missing onStatusChange or currentUserId');
+      return;
+    }
+
+    const bookedBy = newStatus === ApartmentStatus.BOOKING ? currentUserId : undefined;
+    onStatusChange(apartment.id, newStatus, bookedBy);
+  };
 
   return (
     <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden hover:border-gray-600 transition-colors">
@@ -54,6 +106,38 @@ export function ApartmentCard({
             <span className="font-medium">{apartment.rent}</span>
           </div>
         </div>
+      </div>
+
+      {/* Status Section */}
+      <div className="px-4 py-3 border-b border-gray-700">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-gray-400">Status:</span>
+          <StatusDropdown
+            currentStatus={apartment.status}
+            onStatusChange={handleStatusChange}
+          />
+        </div>
+        
+        {/* Show booker info when status is booking */}
+        {apartment.status === ApartmentStatus.BOOKING && bookerInfo && (
+          <div className="flex items-center gap-2 mt-2">
+            <User className="h-3 w-3 text-gray-400" />
+            <span className="text-xs text-gray-400">
+              Booked by{' '}
+              <span 
+                className="inline-flex items-center gap-1 text-white font-medium"
+              >
+                <span 
+                  className="w-3 h-3 rounded-full flex items-center justify-center text-xs"
+                  style={{ backgroundColor: bookerInfo.avatar_color }}
+                >
+                  {bookerInfo.name.charAt(0).toUpperCase()}
+                </span>
+                {bookerInfo.name}
+              </span>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Location Scores */}

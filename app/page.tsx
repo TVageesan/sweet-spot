@@ -11,7 +11,7 @@ import { ConfirmApartment } from "@/components/confirm-apartment";
 import { ApartmentCard } from "@/components/apartment-card";
 import { ApartmentFilters } from "@/components/apartment-filters";
 import { createClient } from "@/utils/supabase/client";
-import { ApartmentService, type Apartment } from "@/utils/apartment-service";
+import { ApartmentService, type Apartment, ApartmentStatus } from "@/utils/apartment-service";
 
 interface RouteResult {
   destination: string;
@@ -23,6 +23,7 @@ interface RouteResult {
 interface FilterOptions {
   sortBy: 'date' | 'rent' | 'fairness' | 'mean';
   sortOrder: 'asc' | 'desc';
+  statusFilter: ApartmentStatus | 'all';
 }
 
 export default function HomePage() {
@@ -41,10 +42,11 @@ export default function HomePage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentUserName, setCurrentUserName] = useState<string>('');
   
-  // Filter state
+  // Filter state - updated to include status filter
   const [filters, setFilters] = useState<FilterOptions>({
     sortBy: 'date',
-    sortOrder: 'desc'
+    sortOrder: 'desc',
+    statusFilter: 'all'
   });
   
   const router = useRouter();
@@ -201,9 +203,27 @@ export default function HomePage() {
     }
   };
 
+  const handleStatusChange = async (apartmentId: string, status: ApartmentStatus, bookedBy?: string) => {
+    console.log('handleStatusChange called:', { apartmentId, status, bookedBy, currentUserId: currentUser?.id });
+    
+    try {
+      await apartmentService.updateApartmentStatus(apartmentId, status, bookedBy);
+      console.log('Status update successful');
+      // Real-time subscription will handle the UI update
+    } catch (error) {
+      console.error('Failed to update apartment status:', error);
+      alert('Failed to update status. Please try again.');
+    }
+  };
+
   // Filter and sort apartments
   const filteredAndSortedApartments = useMemo(() => {
     let filtered = [...apartments];
+    
+    // Apply status filter
+    if (filters.statusFilter !== 'all') {
+      filtered = filtered.filter(apt => apt.status === filters.statusFilter);
+    }
     
     // Apply sorting
     filtered.sort((a, b) => {
@@ -270,7 +290,7 @@ export default function HomePage() {
               <ApartmentFilters
                 filters={filters}
                 onFiltersChange={setFilters}
-                totalCount={apartments.length}
+                totalCount={filteredAndSortedApartments.length}
               />
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -281,6 +301,7 @@ export default function HomePage() {
                     currentUserId={currentUser?.id}
                     currentUserName={currentUserName}
                     onDelete={handleDeleteApartment}
+                    onStatusChange={handleStatusChange}
                   />
                 ))}
               </div>
