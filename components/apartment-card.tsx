@@ -12,6 +12,7 @@ import {
   type RoommateInfo,
   ApartmentService 
 } from "@/utils/apartment-service";
+import { extractWebsiteInfo, getWebsiteFavicon, type WebsiteInfo } from "@/utils/website-info";
 
 interface ApartmentCardProps {
   apartment: Apartment;
@@ -30,9 +31,18 @@ export function ApartmentCard({
 }: ApartmentCardProps) {
   const [bookerInfo, setBookerInfo] = useState<RoommateInfo | null>(null);
   const [apartmentService] = useState(() => new ApartmentService());
+  const [websiteInfo, setWebsiteInfo] = useState<WebsiteInfo | null>(null);
 
   // Debug: Log the apartment object to see its structure
   console.log('ApartmentCard apartment object:', apartment);
+
+  // Extract website info from URL
+  useEffect(() => {
+    if (apartment.url) {
+      const info = extractWebsiteInfo(apartment.url);
+      setWebsiteInfo(info);
+    }
+  }, [apartment.url]);
 
   // Load booker info when apartment is booked
   useEffect(() => {
@@ -83,7 +93,34 @@ export function ApartmentCard({
                 {apartment.address}
               </h3>
             </div>
+            
+            {/* Website Info */}
+            {websiteInfo && (
+              <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-1.5">
+                  <img 
+                    src={websiteInfo.logo || getWebsiteFavicon(websiteInfo.domain)}
+                    alt={`${websiteInfo.displayName} logo`}
+                    className="w-4 h-4 rounded-sm"
+                    onError={(e) => {
+                      // Fallback to Google favicon service if the direct logo fails
+                      const target = e.target as HTMLImageElement;
+                      if (target.src !== getWebsiteFavicon(websiteInfo.domain)) {
+                        target.src = getWebsiteFavicon(websiteInfo.domain);
+                      }
+                    }}
+                  />
+                  <span 
+                    className="text-xs font-medium"
+                    style={{ color: websiteInfo.color || '#6B7280' }}
+                  >
+                    {websiteInfo.displayName}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
+          
           {apartment.url && (
             <a
               href={apartment.url}
